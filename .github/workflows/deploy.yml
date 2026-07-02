@@ -1,0 +1,34 @@
+name: Deploy Automation ISA
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Clonar codigo del repositorio
+      uses: actions/checkout@v3
+
+    - name: Copiar archivos HTML y Dockerfile a la EC2
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_KEY }}
+        source: "Dockerfile,index.html"
+        target: "~/app"
+
+    - name: Construir y levantar contenedor en la EC2
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          cd ~/app
+          docker stop web-app || true
+          docker rm web-app || true
+          docker build -t mi-web-app .
+          docker run -d --name web-app -p 8080:80 --restart always mi-web-app
